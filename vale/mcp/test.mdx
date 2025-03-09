@@ -1,0 +1,187 @@
+---
+title: "FAQ"
+---
+
+Post your questions on
+[StackExchange](https://solana.stackexchange.com/questions/ask).
+
+## Berkeley Packet Filter (BPF)
+
+Solana on-chain programs compile via the
+LLVM (Low Level Virtual Machine) compiler infrastructure to an
+[Executable and Linkable Format (ELF)](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+containing a variation of the
+[Berkeley Packet Filter (BPF)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter)
+bytecode.
+
+Because Solana uses the LLVM (Low Level Virtual Machine) compiler infrastructure, developers can write programs
+in any programming language that can target LLVM (Low Level Virtual Machine) BPF backend.
+
+BPF provides an efficient
+[instruction set](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md) that
+runs in an interpreted virtual machine or as efficient just-in-time
+compiled native instructions.
+
+## Memory map
+
+The virtual address memory map used by Solana SBF (Solana Berkeley Filter) programs has a fixed layout
+as follows:
+
+- Program code starts at address range beginning with 0×100000000
+- Stack data starts at address range beginning with 0×200000000
+- Heap data starts at address range beginning with 0×300000000
+- Program input parameters start at address range beginning with 0×400000000
+
+These virtual addresses mark starting points, but programs receive access to
+a subset of the memory map. The program panics if it attempts to read or
+write to a virtual address outside its granted access, and an
+`AccessViolation` error shows the address and size of the attempted violation.
+
+## InvalidAccountData
+
+This program error can occur for specific reasons. Typically, it happens when
+passing an account to the program that the program doesn't expect, either in
+the wrong position in the instruction or an account incompatible with the
+instruction running.
+
+A program implementation might also trigger this error when performing a
+cross-program instruction without providing the account for the program
+that needs calling.
+
+## InvalidInstructionData
+
+This program error can occur during instruction deserialization. Verify
+that the structure passed in matches exactly what the instruction expects. Look for
+padding between fields. If the program implements the Rust `Pack` trait, try
+packing and unpacking the instruction type `T` to determine the exact encoding
+the program expects.
+
+## MissingRequiredSignature
+
+Some instructions require a signed account; this error appears if
+an account should have a signature but doesn't.
+
+A program implementation might also trigger this error when performing a
+[cross-program invocation](/docs/core/cpi) that requires a signed program
+address, but the signer seeds passed to `invoke_signed` don't match the
+signer seeds used to create the program address with
+[`create_program_address`](/docs/core/pda#createprogramaddress).
+
+## Stack
+
+SBF (Solana Berkeley Filter) uses stack frames instead of a variable stack pointer. Each stack frame
+contains 4KB.
+
+If a program exceeds that stack frame size, the compiler shows an
+overrun warning.
+
+For example:
+
+```text
+Error: Function _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E Stack offset of -30728 exceeded max offset of -4096 by 26632 bytes, please reduce large stack variables
+```
+
+The message shows which symbol exceeds its stack frame, but the name
+might appear in mangled form.
+
+> To decode a Rust symbol, use a symbol decoder tool.
+
+The preceding warning came from a Rust program. The readable symbol name appears as:
+
+```shell
+demangling-tool _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E
+curve25519_dalek::edwards::EdwardsBasepointTable::create
+```
+
+The compiler produces a warning rather than an error because some dependent
+crates may include features that exceed the stack frame restrictions even
+if the program doesn't use that capability. If the program exceeds the stack
+size at runtime, the system reports an `AccessViolation` error.
+
+SBF (Solana Berkeley Filter) stack frames occupy a virtual address range starting at 0×200000000.
+
+## Heap size
+
+Programs can access a runtime heap via the Rust `alloc` interfaces. For fast
+allocations, a simple 32KB bump heap serves this purpose. The heap doesn't support
+`free` or memory reallocation.
+
+Internally, programs can access the 32KB memory region starting at virtual
+address 0×300000000 and may create a custom heap based on specific needs.
+
+Rust programs define the heap directly by setting a custom
+[`global_allocator`](https://github.com/solana-labs/solana/blob/d9b0fc0e3eec67dfe4a97d9298b15969b2804fab/sdk/program/src/entrypoint.rs#L72)
+
+## Loaders
+
+Programs deploy with and run through runtime loaders. Currently, two loaders exist:
+[BPF Loader](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader.rs#L17)
+and
+[BPF loader deprecated](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader_deprecated.rs#L14)
+
+Loaders may support different app binary interfaces, so developers must
+write programs for and deploy them to the same loader. If you deploy a program
+written for one loader to a different one, this often causes an
+`AccessViolation` error due to mismatched deserialization of the program's input
+parameters.
+
+For practical purposes, always write programs to target the latest
+BPF loader. The latest loader serves as the default for both the command-line interface
+and the JavaScript interfaces.
+
+- [Rust program entrypoints](/docs/programs/lang-rust#program-entrypoint)
+
+### Deployment
+
+SBF (Solana Berkeley Filter) program deployment uploads a BPF shared object into a
+program account's data and marks the account executable. A client divides the
+BPF shared object into smaller pieces and sends them as the instruction data of
+[`Write`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L13)
+instructions to the loader. The loader stores that data in the program's
+account data. After sending all pieces, the client sends a
+[`Complete`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L30)
+instruction to the loader. The loader then validates the BPF data and
+marks the program account as _executable_. After marking the program account
+executable, transactions can issue instructions for that
+program to process.
+
+When an instruction targets an executable BPF program, the loader
+sets up the program's execution environment, serializes the program's input
+parameters, calls the program's entrypoint, and reports any errors encountered.
+
+For further information, see [deploying programs](/docs/programs/deploying).
+
+### Input Parameter Serialization
+
+BPF loaders serialize program input parameters into a byte array that passes
+to the program's entrypoint. The program then must deserialize it on-chain. One change between the deprecated loader and
+the current loader involves parameter serialization: parameters now align on specific offsets within the aligned byte
+array. This allows deserialization implementations to reference the
+byte array directly and provide aligned pointers to the program.
+
+- [Rust program parameter deserialization](/docs/programs/lang-rust#parameter-deserialization)
+
+The latest loader serializes program input parameters as follows (all
+encoding uses little-endian):
+
+- 8 bytes unsigned number of accounts
+- For each account
+  - 1 byte indicating if this duplicates an account. Value 0xff means not a duplicate,
+    otherwise the value indicates the index of the account it duplicates.
+  - If duplicate: 7 bytes of padding
+  - If not duplicate:
+    - 1 byte Boolean, true if account has a signer
+    - 1 byte Boolean, true if account allows writing
+    - 1 byte Boolean, true if account allows execution
+    - 4 bytes of padding
+    - 32 bytes of the account public key
+    - 32 bytes of the account's owner public key
+    - 8 bytes unsigned number of lamports owned by the account
+    - 8 bytes unsigned number of bytes of account data
+    - x bytes of account data
+    - 10k bytes of padding, for memory reallocation
+    - enough padding to align the offset to 8 bytes
+    - 8 bytes rent epoch
+- 8 bytes of unsigned number of instruction data
+- x bytes of instruction data
+- 32 bytes of the program id

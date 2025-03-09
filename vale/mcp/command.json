@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vale": {
+      "command": "node",
+      "args": ["/Users/johnliu/code/misc/mcp/vale/mcp/build/index.js"],
+      "env": {
+        "JINA_API_KEY": "jina_17c6bd94e63847d6bde95f8989e22aefFwFziWO07Ob9fBNmWFOAbd4HMnaY"
+      }
+    }
+  }
+}

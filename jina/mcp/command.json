@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "jina": {
+      "command": "node",
+      "args": ["/Users/johnliu/code/misc/mcp/jina/mcp/build/index.js"]
+    }
+  }
+}
