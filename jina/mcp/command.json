@@ -1,8 +1,11 @@
 {
   "mcpServers": {
-    "jina": {
-      "command": "node",
-      "args": ["/Users/johnliu/code/misc/mcp/jina/mcp/build/index.js"]
+    "jina-reader": {
+      "command": "npx",
+      "args": ["jina-mcp"],
+      "env": {
+        "JINA_API_KEY": ""
+      }
     }
   }
 }

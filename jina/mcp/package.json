@@ -1,12 +1,19 @@
 {
   "name": "jina-mcp",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "MCP tool for JINA reader API",
   "main": "build/index.js",
   "type": "module",
+  "files": [
+    "build/**/*"
+  ],
+  "bin": {
+    "jina-mcp": "build/index.js"
+  },
   "scripts": {
-    "build": "tsc",
-    "start": "node build/index.js"
+    "build": "tsc && shx chmod +x build/index.js",
+    "start": "node build/index.js",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -16,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.17.24",
+    "shx": "^0.3.4",
     "typescript": "^5.3.3"
   }
 }
