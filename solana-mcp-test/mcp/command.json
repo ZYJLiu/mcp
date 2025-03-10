@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "solana-dev": {
+      "command": "npx",
+      "args": ["solana-mcp-test"]
+    }
+  }
+}

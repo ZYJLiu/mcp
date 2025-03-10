@@ -1,0 +1,28 @@
+{
+  "name": "solana-mcp-test",
+  "version": "0.0.3",
+  "description": "Solana MCP test tool via Cloudflare Worker",
+  "main": "build/index.js",
+  "type": "module",
+  "files": [
+    "build/**/*"
+  ],
+  "bin": {
+    "solana-mcp-test": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && shx chmod +x build/index.js",
+    "start": "node build/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "shx": "^0.3.4",
+    "typescript": "^5.3.3"
+  }
+}
